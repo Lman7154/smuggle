@@ -1,0 +1,445 @@
+{
+  "pbtResults": {
+    "1.2 Write the removed-symbols import property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793239854898
+    },
+    "1.3 Write the export-list resolution property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793240437087
+    },
+    "1.7 Write the no-demonstrations rejection property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793242384148
+    },
+    "3.4 Write the converter-attachment property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793241978700
+    },
+    "3.7 Write the composite-judge truth-table property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793242118435
+    },
+    "3.5 Write the injected-judge identity property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793243063079
+    },
+    "5.4 Write the best-of-N property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793243092420
+    },
+    "5.5 Write the interaction difference-in-differences property test": {
+      "status": "passed",
+      "lastRunTimestamp": 1793243622472
+    }
+  },
+  "executionHistory": {
+    "1.1 Remove the CipherChat banks and repair the public surface": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715567
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238729765
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239185196
+      }
+    ],
+    "1.4 Decouple `run_adaptive_unicode_search(_async)` from the category bank": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715628
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239200155
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239578730
+      }
+    ],
+    "1.6 Rewire `run_jailbreak_prepend(_async)` onto injected demonstrations": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715676
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239922321
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240259108
+      }
+    ],
+    "2. Checkpoint - Workstream A": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715722
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242492502
+      }
+    ],
+    "3.1 Add `CrescendoAttack` to the single PyRIT import surface": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715781
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238730868
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239185913
+      }
+    ],
+    "3.2 Add `CrescendoOutcome` and `run_crescendo(_async)` to the runner": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715845
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239201606
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239579900
+      }
+    ],
+    "3.3 Export the Crescendo runner from the package": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715891
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239923444
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240259899
+      }
+    ],
+    "4. Checkpoint - Workstream B": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715934
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793244030758
+      }
+    ],
+    "5.1 Add `run_crescendo_factorial(_async)` to the experiments layer": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238715978
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240748334
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793241297807
+      }
+    ],
+    "5.2 Add `factorial_2x2`, `FactorialResult`, and `format_factorial_table` to the analysis layer": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238716028
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240749825
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793241298356
+      }
+    ],
+    "5.3 Export the factorial driver and analysis from the package": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238716096
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242493489
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242660206
+      }
+    ],
+    "6. Checkpoint - Workstream C": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238716141
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793245060181
+      }
+    ],
+    "7.1 Update the README for the new and decoupled entry points": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238716189
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793245060984
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793245671723
+      }
+    ],
+    "8. Final checkpoint": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793238716239
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793245692234
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793245831746
+      }
+    ],
+    "1.2 Write the removed-symbols import property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239652822
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793239884233
+      }
+    ],
+    "1. Workstream A: remove shipped harmful banks, fix the import surface, decouple search and jailbreak": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240259161
+      }
+    ],
+    "3. Workstream B: Crescendo-Unicode multi-turn runner": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240259952
+      }
+    ],
+    "1.3 Write the export-list resolution property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240288268
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240710085
+      }
+    ],
+    "1.5 Write the decoupled-search behaviour test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240288470
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793240710932
+      }
+    ],
+    "1.7 Write the no-demonstrations rejection property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793241308578
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242444510
+      }
+    ],
+    "3.4 Write the converter-attachment property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793241309734
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242205140
+      }
+    ],
+    "3.7 Write the composite-judge truth-table property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793241310641
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242205803
+      }
+    ],
+    "5. Workstream C: 2x2 factorial and separated reporting": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242660281
+      }
+    ],
+    "3.5 Write the injected-judge identity property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242669697
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793243132373
+      }
+    ],
+    "3.8 Write the reproducibility and import-surface smoke test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242671045
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793243133836
+      }
+    ],
+    "5.4 Write the best-of-N property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793242672146
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793243134758
+      }
+    ],
+    "3.6 Write the `CrescendoOutcome` shape and variant-path test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793243163963
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793244012865
+      }
+    ],
+    "5.5 Write the interaction difference-in-differences property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793243164878
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793244013798
+      }
+    ],
+    "5.6 Write the separated bypass/compliance property test": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793244030819
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793244480565
+      }
+    ],
+    "5.7 Write the `factorial_2x2` unit test on synthetic cells": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793244481347
+      },
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793245053360
+      }
+    ],
+    "7. Final integration and documentation": [
+      {
+        "executionId": "de1e64ac-abcc-45be-9883-5825a0d64c09",
+        "chatSessionId": "sess_eae82834-ca58-4e5a-b4f7-2962ddcafd0d",
+        "timestamp": 1793245671806
+      }
+    ]
+  }
+}
