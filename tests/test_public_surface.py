@@ -55,8 +55,8 @@ def test_removed_symbol_is_unimportable(name: str) -> None:
 # ---------------------------------------------------------------------------
 # Property 2: the public export list fully resolves.
 #
-# Task 3.3 added ``run_crescendo`` / ``run_crescendo_async`` / ``CrescendoOutcome``
-# and task 1.1 removed the nine CipherChat names. Every name still advertised in
+# Task 1.1 removed the nine CipherChat names from the package surface. Every name
+# still advertised in
 # ``smuggle.__all__`` must resolve on the package to a present, non-``None`` object
 # (Requirement 1.3), and a plain ``import smuggle`` must succeed without any removed
 # CipherChat name reappearing on the surface. The count is intentionally NOT pinned:

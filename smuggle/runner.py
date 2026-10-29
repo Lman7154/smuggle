@@ -417,7 +417,7 @@ def _load_priming_template(system_prompt: Any = None):
 
     ``None`` -> the shipped Strategy A template; a path -> loaded from YAML; a SeedPrompt
     -> used as-is. The template instructs the adversarial model HOW to prime (proposal
-    4.5.1); it is the analogue of PyRIT's crescendo adversarial templates."""
+    4.5.1); it is the analogue of PyRIT's adversarial-chat system-prompt templates."""
     from pyrit.models import SeedPrompt
     if system_prompt is None:
         return SeedPrompt.from_yaml_file(DEFAULT_PRIMING_TEMPLATE)
@@ -528,7 +528,7 @@ async def run_multiturn_a_async(
     Over a fixed 5-turn budget:
       - turns 1-3: the ADVERSARIAL CHAT generates benign, domain-narrowing priming
         messages from the shipped ``unicode_smuggling_context_priming.yaml`` template
-        (analogous to PyRIT's crescendo adversarial templates). Each is sent to the
+        (analogous to PyRIT's adversarial-chat templates). Each is sent to the
         target and its reply is accumulated into the conversation.
       - turn 4: the pipeline delivers the EXACT SAME encoded prompt Experiment 1 sends -
         the harmful objective with its guardrail-detected trigger words encoded - on top
