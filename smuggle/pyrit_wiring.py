@@ -6,7 +6,6 @@ from pyrit.prompt_target import OpenAIChatTarget
 from pyrit.executor.attack import (
     PromptSendingAttack,
     RedTeamingAttack,
-    CrescendoAttack,
     AttackAdversarialConfig,
     AttackConverterConfig,
     AttackScoringConfig,
@@ -49,7 +48,7 @@ except Exception:  # pragma: no cover
 
 __all__ = [
     "OpenAIChatTarget",
-    "PromptSendingAttack", "RedTeamingAttack", "CrescendoAttack",
+    "PromptSendingAttack", "RedTeamingAttack",
     "AttackAdversarialConfig", "AttackConverterConfig", "AttackScoringConfig",
     "SelfAskTrueFalseScorer", "SelfAskRefusalScorer", "TrueFalseQuestion", "LlamaGuardScorer",
     "TrueFalseCompositeScorer", "TrueFalseInverterScorer", "TrueFalseScoreAggregator",

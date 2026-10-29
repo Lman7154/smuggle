@@ -67,128 +67,6 @@ and per-variant `judge_success` / `bypassed_input_guardrail`). The multi-turn
 modes return a list of `MultiTurnOutcome` records (per-turn success, first-success
 turn depth).
 
-## Crescendo-Unicode multi-turn arm
-
-`run_crescendo` / `run_crescendo_async` drive PyRIT's `CrescendoAttack`: the injected
-`adversarial` chat escalates the harmful objective turn by turn, the mutation engine smuggles
-every adversarial turn as a request converter (targeted inline, so each turn stays readable),
-PyRIT backtracks on refusals, and the injected composite `judge` decides success. Nothing is
-hardcoded — `target`, `adversarial`, `judge`, `prompts`, the encoding `attack` family, and the
-optional `variant_path` are all injected.
-
-```python
-import smuggle
-from smuggle import jbb
-
-local   = "http://localhost:11434/v1"
-target  = smuggle.make_target("llama3.1:8b", base_url=local, api_key="ollama")        # chatbot under test
-adv     = smuggle.make_target("llama3.1:70b", base_url=local, api_key="ollama")       # adversarial red-teamer
-judge   = smuggle.make_judge(smuggle.make_target("qwen2.5:72b", base_url=local, api_key="ollama",
-                                                 max_completion_tokens=4096))         # strong general judge
-prompts = jbb.jbb_prompts(jbb.load_jbb_goals())                                       # the real JBB Goals
-
-# Encoded Crescendo: each escalation turn is smuggled with the chosen family.
-outcomes = smuggle.run_crescendo(
-    target=target,
-    adversarial=adv,
-    judge=judge,
-    prompts=prompts,
-    attack="variation_selector",   # encoding family (or a list to combine); None => plaintext Crescendo
-    max_turns=10,                  # PyRIT default
-    max_backtracks=10,             # PyRIT default
-    variant_path=None,             # optional Crescendo variant YAML; None => PyRIT's crescendo_variant_1
-)
-for o in outcomes:
-    print(o.seed_id, o.judge_success, o.executed_turns, o.backtrack_count)
-
-# Plaintext Crescendo baseline (Unicode OFF): attack=None attaches no converter.
-plain = smuggle.run_crescendo(target=target, adversarial=adv, judge=judge,
-                              prompts=prompts, attack=None)
-```
-
-Inside an event loop (e.g. a notebook) await the async entry point directly:
-
-```python
-outcomes = await smuggle.run_crescendo_async(
-    target=target, adversarial=adv, judge=judge, prompts=prompts,
-    attack="variation_selector", max_turns=10, max_backtracks=10,
-)
-```
-
-Each call returns a list of `CrescendoOutcome` records (`judge_success`, `executed_turns`,
-`backtrack_count`, `last_response`, `family`, `unicode_on`, `variant_label`, ...). Pass
-`variant_path="path/to/your_variant.yaml"` to supply your own Crescendo variant; it is loaded into
-a PyRIT `SeedPrompt`, so hand it the YAML path, not raw template text.
-
-**The adversarial chat must be capable.** Both targets must be natively capable (PyRIT validates
-this in the `CrescendoAttack` constructor and raises `ValueError` if unmet): the objective `target`
-needs editable history + multi-turn, and the `adversarial` chat needs multi-turn + system-prompt
-support. Where the injected adversarial endpoint lacks JSON-schema enforcement — an Ollama
-`OpenAIChatTarget` reports `supports_json_schema=False` — the endpoint cannot enforce the Crescendo
-variant's `adversarial_chat` JSON schema, so the adversarial chat must be a model able to emit that
-variant JSON by instruction-following alone. A weak or aligned adversarial model degrades or refuses
-the red-team role; this is a measurement caveat, not a code path. The judge should likewise be a
-strong general model, since a weak judge mis-steers the escalation loop, not just the final label.
-
-## 2x2 factorial: isolate the Crescendo factor from the Unicode factor
-
-`run_crescendo_factorial` / `run_crescendo_factorial_async` run the same injected `family`, the
-same prompts, and the same model through all four cells of the {Crescendo on/off} x {Unicode
-on/off} design, so an effect can be attributed to the token surface (Unicode) versus the escalation
-(Crescendo):
-
-| cell | Crescendo | Unicode |
-| --- | --- | --- |
-| `single_plain` | off | off (raw Goal baseline) |
-| `single_enc` | off | on (identical to Experiment 1's payload) |
-| `crescendo_plain` | on | off |
-| `crescendo_enc` | on | on |
-
-```python
-import smuggle
-from smuggle import jbb
-
-local   = "http://localhost:11434/v1"
-target  = smuggle.make_target("llama3.1:8b", base_url=local, api_key="ollama")
-adv     = smuggle.make_target("llama3.1:70b", base_url=local, api_key="ollama")
-guard   = smuggle.make_guardrail(model="llama-guard3:latest", base_url=local, api_key="ollama")
-judge   = smuggle.make_judge(smuggle.make_target("qwen2.5:72b", base_url=local, api_key="ollama",
-                                                 max_completion_tokens=4096))
-prompts = jbb.jbb_prompts(jbb.load_jbb_goals())
-
-cells, errors = smuggle.run_crescendo_factorial(
-    targets=target,
-    prompts=prompts,
-    judge=judge,
-    adversarial=adv,              # required for the two Crescendo cells
-    family="variation_selector",  # one injected family, held constant across all four cells
-    guardrail=guard,              # drives single_enc trigger detection
-    input_guardrail=guard,        # scores single-turn guardrail bypass
-    max_turns=10,
-    max_backtracks=10,
-)
-
-# `cells` is the four-label dict (single_plain | single_enc | crescendo_plain | crescendo_enc)
-# that plugs straight into the analysis layer:
-result = smuggle.factorial_2x2(cells)          # ASR + Wilson CI per cell, two main effects,
-                                               # difference-in-differences interaction, paired McNemar
-print(smuggle.format_factorial_table(result))
-```
-
-`run_crescendo_factorial` returns `(cells, errors)`: `cells` is a clean `dict[str, list]` of the
-four cell lists, and `errors` is a parallel list of `(model, cell_label, seed, message)` entries.
-`format_factorial_table` renders compliance ASR and guardrail bypass as **separate columns** —
-bypass is well defined only for the single-turn cells, so the two Crescendo cells show `n/a` bypass
-(a different adversary-generated payload is delivered each turn, so no single comparable bypass
-figure exists). Inside an event loop, await the async form:
-
-```python
-cells, errors = await smuggle.run_crescendo_factorial_async(
-    targets=target, prompts=prompts, judge=judge, adversarial=adv,
-    family="variation_selector", guardrail=guard, input_guardrail=guard,
-)
-```
-
 ## Caller-injected jailbreak-prepend condition
 
 `run_jailbreak_prepend` / `run_jailbreak_prepend_async` run an explicit few-shot jailbreak-prepend
@@ -286,8 +164,6 @@ export SMUGGLE_DB=runs/exp1.sqlite    # bash
 
 If you drive PyRIT setup yourself, call `smuggle.init_pyrit_sqlite("runs/exp1.sqlite")`
 **before constructing any target** — the store cannot be swapped once targets are built against it.
-The Crescendo and factorial runners persist their multi-turn transcripts to the same store, so
-initialise it first for any real multi-hour run.
 
 ## Dataset: load the JBB `Goal`, not the `Behavior` label
 
@@ -312,7 +188,7 @@ r3a, errs = run_experiment_3a(targets=..., prompts=prompts, guardrail=..., judge
 
 On the real Goals, Llama Guard flags ~96/100 and trigger-detection fallback drops to ~56/100.
 
-## Strategy A uses an adversarial-chat template (like PyRIT's Crescendo)
+## Strategy A uses an adversarial-chat template
 
 Context priming is driven by an adversarial system-prompt template, not a canned script.
 The shipped `smuggle/templates/unicode_smuggling_context_priming.yaml` instructs the

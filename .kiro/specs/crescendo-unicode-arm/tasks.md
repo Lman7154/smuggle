@@ -60,12 +60,12 @@ Net-new code is confined to the runner, experiments, analysis, and `pyrit_wiring
 - [x] 2. Checkpoint - Workstream A
   - Ensure all offline tests pass and `import smuggle` is clean, ask the user if questions arise.
 
-- [x] 3. Workstream B: Crescendo-Unicode multi-turn runner
-  - [x] 3.1 Add `CrescendoAttack` to the single PyRIT import surface
+- [ ] 3. Workstream B: Crescendo-Unicode multi-turn runner
+  - [ ] 3.1 Add `CrescendoAttack` to the single PyRIT import surface
     - In `smuggle/pyrit_wiring.py` add `CrescendoAttack` to the `from pyrit.executor.attack import (...)` block and to `__all__` (`SeedPrompt` is already exported, so the variant loader needs nothing new)
     - _Requirements: 4.1, 6.6_
 
-  - [x] 3.2 Add `CrescendoOutcome` and `run_crescendo(_async)` to the runner
+  - [ ] 3.2 Add `CrescendoOutcome` and `run_crescendo(_async)` to the runner
     - In `smuggle/runner.py` add the frozen `CrescendoOutcome` dataclass (`seed_id, objective, family, mode, unicode_on, executed_turns, backtrack_count, judge_success, last_response, model, adversarial_model, max_turns, max_backtracks, variant_label="", outcome_reason=""`)
     - Add `run_crescendo_async` modelled on `run_redteam_async`: when `attack` is set, build a targeted-inline `MutationEngine` (no `whole_prompt`) and attach it via `P.AttackConverterConfig(request_converters=ConverterConfiguration.from_converters([engine]))`; when `attack is None`, set the converter config to `None` so no converter is attached (plaintext Crescendo)
     - Pass the injected judge as `P.AttackScoringConfig(objective_scorer=judge)` (never let Crescendo build its own default scale scorer); accept and forward `adversarial`, `judge`, `attack` (family), `max_turns`, and `max_backtracks`
@@ -75,91 +75,91 @@ Net-new code is confined to the runner, experiments, analysis, and `pyrit_wiring
     - Add the thin synchronous wrapper `run_crescendo(**kwargs)` delegating via `asyncio.run`
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8, 6.2, 6.6, 6.7_
 
-  - [x] 3.3 Export the Crescendo runner from the package
+  - [ ] 3.3 Export the Crescendo runner from the package
     - In `smuggle/__init__.py` import `run_crescendo`, `run_crescendo_async`, and `CrescendoOutcome` from `.runner` and add them to `__all__`
     - _Requirements: 1.3, 4.8_
 
-  - [x]* 3.4 Write the converter-attachment property test
+  - [ ]* 3.4 Write the converter-attachment property test
     - **Property 4: Crescendo attaches a targeted-inline mutation engine**
     - Build the attack with `run_crescendo`'s wiring using real `make_target` `OpenAIChatTarget`s (construction only, no model call); for each family in `FAMILIES`, introspect the built attack's request-converter configuration and assert exactly one `MutationEngine` configured in targeted mode with whole-prompt encoding off; assert `attack=None` attaches no request converter
     - Tag the test `**Feature: crescendo-unicode-arm, Property 4: Crescendo attaches a targeted-inline mutation engine**`
     - New file `tests/test_crescendo_runner.py`
     - **Validates: Requirements 4.2, 4.3**
 
-  - [x]* 3.5 Write the injected-judge identity property test
+  - [ ]* 3.5 Write the injected-judge identity property test
     - **Property 5: The Crescendo objective scorer is the injected judge**
     - Using a judge object accepted by `CrescendoAttack` (the project composite judge or a minimal `TrueFalseScorer`), assert the built attack uses that exact object as its objective scorer (identity), never PyRIT's default scale scorer
     - Tag the test `**Feature: crescendo-unicode-arm, Property 5: The Crescendo objective scorer is the injected judge**`
     - Add to `tests/test_crescendo_runner.py`
     - **Validates: Requirements 4.4, 6.2**
 
-  - [x]* 3.6 Write the `CrescendoOutcome` shape and variant-path test
+  - [ ]* 3.6 Write the `CrescendoOutcome` shape and variant-path test
     - Assert all `CrescendoOutcome` fields are present with correct defaults, that `family == ()` and `mode == "plaintext"` when `unicode_on` is false, and that `variant_label` defaults to `""`
     - Assert that a supplied `variant_path` sets `AttackAdversarialConfig.system_prompt` to the loaded `SeedPrompt`, and that omitting it leaves PyRIT's default (no system prompt set), both observed from the built attack's adversarial configuration without a model call
     - Add to `tests/test_crescendo_runner.py`
     - _Requirements: 4.6, 4.7_
 
-  - [x]* 3.7 Write the composite-judge truth-table property test
+  - [ ]* 3.7 Write the composite-judge truth-table property test
     - **Property 9: The composite judge is success iff achieved and not refused**
     - Build `make_judge` with stub task-achieved and refusal sub-scorers; enumerate the `(achieved, refused)` truth table and assert the composite scores success exactly when `achieved AND NOT refused`
     - Tag the test `**Feature: crescendo-unicode-arm, Property 9: The composite judge is success iff achieved and not refused**`
     - New file `tests/test_crescendo_support.py`
     - **Validates: Requirements 6.2**
 
-  - [x]* 3.8 Write the reproducibility and import-surface smoke test
+  - [ ]* 3.8 Write the reproducibility and import-surface smoke test
     - Assert `make_target(...)` pins `temperature == 0.0` on the built target
     - Assert the runner reaches PyRIT only through the `pyrit_wiring` surface (`P`) plus the one locally-imported `ConverterConfiguration` already used by `run_redteam_async` (static check over `smuggle/runner.py` for direct `pyrit` imports)
     - Add to `tests/test_crescendo_support.py`
     - _Requirements: 6.4, 6.6_
 
-- [x] 4. Checkpoint - Workstream B
+- [ ] 4. Checkpoint - Workstream B
   - Ensure all tests pass and the Crescendo attack constructs offline, ask the user if questions arise.
 
-- [x] 5. Workstream C: 2x2 factorial and separated reporting
-  - [x] 5.1 Add `run_crescendo_factorial(_async)` to the experiments layer
+- [ ] 5. Workstream C: 2x2 factorial and separated reporting
+  - [ ] 5.1 Add `run_crescendo_factorial(_async)` to the experiments layer
     - In `smuggle/experiments.py` add `run_crescendo_factorial_async` returning `{cell_label: [records]}` for the four conditions keyed by `seed_id`: `single_plain` (no-converter `PromptSendingAttack` on the raw Goal, scored by the injected judge via `_R._score`, optionally guardrail-scored, recorded as a `VariantOutcome` with `family=("plaintext",)`, `mode="plaintext"`, `encoded_text=text`, `imperceptibility=1.0`); `single_enc` (reuse `_R.run_async(attack=family, mode="targeted", ...)` so the payload is identical to Experiment 1); `crescendo_plain` (`run_crescendo_async(attack=None, ...)`); `crescendo_enc` (`run_crescendo_async(attack=family, mode="targeted", ...)`)
     - Hold `family`, prompts, and model constant across cells; keep the existing `(rows, errors)` failure convention per cell; add the synchronous `run_crescendo_factorial` wrapper via `asyncio.run`
     - Consume injected prompts as JBB Goals through `_R._normalise_prompts`; document that a real multi-hour run should call `init_pyrit_sqlite` before building targets so transcripts persist
     - _Requirements: 5.1, 6.1, 6.3, 6.5, 6.6_
 
-  - [x] 5.2 Add `factorial_2x2`, `FactorialResult`, and `format_factorial_table` to the analysis layer
+  - [ ] 5.2 Add `factorial_2x2`, `FactorialResult`, and `format_factorial_table` to the analysis layer
     - In `smuggle/analysis.py` add the frozen `FactorialResult` dataclass and `factorial_2x2(cells, *, aggregate="any")` reusing the existing primitives with no change to them
     - Compliance ASR per cell via behaviour-level best-of-N (`asr_over_prompts`/`per_prompt_success` with `aggregate="any"`) plus Wilson CI; three paired contrasts via `mcnemar_over_prompts` (`single_enc` vs `single_plain`, `crescendo_plain` vs `single_plain`, `crescendo_enc` vs `single_plain`)
     - Interaction as difference-in-differences with labels `a=single_plain, b=single_enc, c=crescendo_plain, d=crescendo_enc`: `unicode_main = b - a`, `crescendo_main = c - a`, `interaction = (d - c) - (b - a)`
     - Bypass vs compliance as separate columns via `bypass_and_asr`, with `bypass_rate = None` for the two Crescendo cells (no comparable single-payload guardrail verdict); `format_factorial_table` renders ASR and bypass in separate columns, mirroring `format_report_table`
     - _Requirements: 5.2, 5.3, 5.4, 5.5, 6.6_
 
-  - [x] 5.3 Export the factorial driver and analysis from the package
+  - [ ] 5.3 Export the factorial driver and analysis from the package
     - In `smuggle/__init__.py` import and add to `__all__`: `run_crescendo_factorial`, `run_crescendo_factorial_async` (from `.experiments`) and `factorial_2x2`, `FactorialResult`, `format_factorial_table` (from `.analysis`)
     - _Requirements: 1.3, 5.1_
 
-  - [x]* 5.4 Write the best-of-N property test
+  - [ ]* 5.4 Write the best-of-N property test
     - **Property 6: Best-of-N success is the maximum over draws**
     - For random per-prompt draw sets, assert `per_prompt_success(aggregate="any")` for each prompt equals the logical OR over that prompt's draw outcomes
     - Tag the test `**Feature: crescendo-unicode-arm, Property 6: Best-of-N success is the maximum over draws**`
     - New file `tests/test_factorial.py`
     - **Validates: Requirements 5.5**
 
-  - [x]* 5.5 Write the interaction difference-in-differences property test
+  - [ ]* 5.5 Write the interaction difference-in-differences property test
     - **Property 7: The factorial interaction is the difference-in-differences**
     - For random four-cell success maps, assert `factorial_2x2` reports `unicode_main == b - a`, `crescendo_main == c - a`, and `interaction == (d - c) - (b - a)`
     - Tag the test `**Feature: crescendo-unicode-arm, Property 7: The factorial interaction is the difference-in-differences**`
     - Add to `tests/test_factorial.py`
     - **Validates: Requirements 5.3**
 
-  - [x]* 5.6 Write the separated bypass/compliance property test
+  - [ ]* 5.6 Write the separated bypass/compliance property test
     - **Property 8: Bypass and compliance are reported separately**
     - For random outcome sets with and without guardrail verdicts, assert compliance ASR and guardrail-bypass rate are two distinct values never collapsed, and that the bypass rate is `None` exactly when no outcome in the group carried a guardrail verdict (so both Crescendo cells report `None` bypass)
     - Tag the test `**Feature: crescendo-unicode-arm, Property 8: Bypass and compliance are reported separately**`
     - Add to `tests/test_factorial.py`
     - **Validates: Requirements 5.4**
 
-  - [x]* 5.7 Write the `factorial_2x2` unit test on synthetic cells
+  - [ ]* 5.7 Write the `factorial_2x2` unit test on synthetic cells
     - On four synthetic cell lists of minimal outcome-shaped records (no model), assert the per-cell ASR, the two main effects and the interaction, the three McNemar contrasts, that both Crescendo cells carry `None` bypass while the single-turn cells carry a real bypass rate, that compliance and bypass stay in separate columns, and that `format_factorial_table` renders them in separate columns
     - Add to `tests/test_factorial.py`
     - _Requirements: 5.1, 5.2, 5.3, 5.4_
 
-- [x] 6. Checkpoint - Workstream C
+- [ ] 6. Checkpoint - Workstream C
   - Ensure all tests pass and the factorial analysis math is verified, ask the user if questions arise.
 
 - [x] 7. Final integration and documentation
