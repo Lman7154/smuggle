@@ -5,6 +5,7 @@ injected (Requirement 4)."""
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -337,16 +338,21 @@ async def run_async(
     return SmuggleResult(outcomes=outcomes)
 
 
-def run(*, conversation: str = "single", **kwargs: Any) -> SmuggleResult | list[MultiTurnOutcome]:
+def run(*, conversation: str = "single", **kwargs: Any) -> SmuggleResult | list[MultiTurnOutcome] | list["RedTeamOutcome"]:
     """Run one injected research condition through a single public entry point.
 
-    ``conversation`` selects the proposal condition:
+    ``conversation`` selects the condition:
 
     - ``"single"`` / ``"single_turn"``: one encoded delivery (Experiment 1 or 2).
       Pass one ``attack`` family for Experiment 1 or a sequence for Experiment 2.
-    - ``"context_priming"``: Strategy A. Pass caller-owned ``priming`` and,
-      when a post-refusal turn is desired, ``adversarial``.
-    - ``"progressive_accumulation"``: Strategy B's fixed five-step schedule.
+    - ``"multi_turn"`` / ``"adaptive_probe"``: the amended report condition. A
+      ``RedTeamingAttack`` drives an adaptive plaintext prelude and the harness appends one fixed
+      encoded probe. Pass ``adversarial`` and ``guardrail``; this is not the proposal's original
+      scripted benign-context Strategy A.
+    - ``"experiment_3a"`` / ``"context_priming"``: the original proposal Strategy A,
+      implemented by :func:`run_multiturn_a_async` with generated or injected benign priming.
+    - ``"redteam"``: an extension that encodes every adaptive turn.
+    - ``"progressive_accumulation"``: the proposal Strategy B schedule.
 
     ``mode`` remains the independent mutation control (``"targeted"`` or
     ``"random"``), never the conversation selector.  Targets, prompts,
@@ -355,13 +361,18 @@ def run(*, conversation: str = "single", **kwargs: Any) -> SmuggleResult | list[
     key = conversation.lower().replace("-", "_")
     if key in {"single", "single_turn"}:
         return asyncio.run(run_async(**kwargs))
-    if key in {"context_priming", "priming", "multi_a"}:
+    if key in {"multi_turn", "multiturn", "multi", "adaptive_probe", "adaptive_prelude", "report_3a"}:
+        return asyncio.run(run_adaptive_probe_async(**kwargs))
+    if key in {"redteam", "red_teaming", "red_team", "redteam_all_turns"}:
+        return asyncio.run(run_redteam_async(**kwargs))
+    if key in {"experiment_3a", "3a", "proposal_3a", "context_priming", "priming", "multi_a"}:
         return asyncio.run(run_multiturn_a_async(**kwargs))
     if key in {"progressive_accumulation", "accumulation", "multi_b"}:
         return asyncio.run(run_multiturn_b_async(**kwargs))
     raise ValueError(
-        "conversation must be 'single', 'context_priming', or "
-        "'progressive_accumulation'."
+        "conversation must be 'single', 'multi_turn'/'adaptive_probe' (the amended report "
+        "condition), 'experiment_3a'/'context_priming' (the original proposal condition), "
+        "'redteam' (encode every adaptive turn), or 'progressive_accumulation'."
     )
 
 
@@ -393,6 +404,15 @@ class MultiTurnOutcome:
     scheduled_turns: int = 0                 # planned turns (proposal budget); vs executed_turns
     turn5_attempted: bool = False            # Strategy A: was the post-refusal rephrase sent?
     gating_basis: str = ""                   # how turn 5 was gated ("refusal_scorer" | "not_success")
+    adversarial_model: str = ""              # RedTeamingAttack: the adversarial chat model (else "")
+    trigger_base_score: Optional[float] = None     # clean seed prompt P(unsafe) during trigger pre-pass
+    per_turn_input_flagged: tuple[Optional[bool], ...] = ()
+    per_turn_input_guardrail_score: tuple[Optional[float], ...] = ()
+    # adaptive-prelude + fixed-probe design (strategy="adaptive_probe"):
+    pre_probe_success: Optional[bool] = None       # the adaptive prelude achieved the objective BEFORE the probe
+    final_probe_success: Optional[bool] = None     # the fixed encoded probe (final turn) achieved the objective
+    probe_turn: Optional[int] = None               # 1-based turn index that delivered the fixed encoded probe
+    final_probe_text: str = ""                     # the exact encoded payload sent as the probe (== single-turn)
 
 
 def _as_prepended(spec: Any, objective: str):
@@ -525,6 +545,12 @@ async def run_multiturn_a_async(
 ) -> list[MultiTurnOutcome]:
     """Strategy A - Context Priming (proposal 4.5.1), adversarial-chat driven.
 
+    This is the proposal's context-priming condition: generated or scripted benign opening
+    turns, followed by the fixed encoded delivery and an optional refusal-gated rephrase. The
+    amended adaptive-escalatory report condition is :func:`run_adaptive_probe_async`; the two
+    must be reported separately. The turn-4 payload can be byte-matched to Experiment 1, which
+    controls payload content but not deployment-session or generation-setting differences.
+
     Over a fixed 5-turn budget:
       - turns 1-3: the ADVERSARIAL CHAT generates benign, domain-narrowing priming
         messages from the shipped ``unicode_smuggling_context_priming.yaml`` template
@@ -532,8 +558,8 @@ async def run_multiturn_a_async(
         target and its reply is accumulated into the conversation.
       - turn 4: the pipeline delivers the EXACT SAME encoded prompt Experiment 1 sends -
         the harmful objective with its guardrail-detected trigger words encoded - on top
-        of the accumulated benign conversation. This keeps the delivered payload identical
-        to the single-turn baseline so the comparison isolates context priming from encoding.
+        of the accumulated benign conversation. This permits a byte-paired comparison with the
+        single-turn delivery while leaving session-level limitations explicit.
       - turn 5: only if turn 4 was REFUSED (per the injected ``refusal_scorer``; if none is
         given, gating falls back to 'objective not achieved' and that weaker basis is recorded),
         a rephrased follow-up is generated (injected ``followup`` or the adversarial model),
@@ -657,7 +683,8 @@ async def run_multiturn_b_async(
     seed: int = 0,
     model_name: Optional[str] = None,
 ) -> list[MultiTurnOutcome]:
-    """Progressive accumulation (proposal 4.5.2). Within one accumulating conversation the SAME
+    """Progressive accumulation PREPENDED-context baseline (NOT the RedTeamingAttack multi-turn;
+    use :func:`run_redteam_async` for that). Proposal 4.5.2. Within one accumulating conversation the SAME
     request is re-sent over five turns at increasing encoding density: (1) primary trigger word,
     (2) top two, (3) all trigger words, (4) FULL prompt (every character), (5) combined families
     on the full prompt. Scripted (not adversary-generated); reuses the single-turn send path with
@@ -780,61 +807,364 @@ async def run_redteam_async(
     adversarial: Any,                # adversarial chat that GENERATES each turn's prompt (injected)
     judge: Any,                      # objective scorer, a TrueFalseScorer (in the loop)
     prompts: Any,
+    guardrail: Any = None,           # trigger-word detection on the CLEAN seed prompt (proposal 4.3.1 pre-pass)
     attack: Union[str, Sequence[str]] = "variation_selector",
     mode: str = "targeted",
-    trigger_words: Sequence[str] = (),
+    trigger_words: Optional[Sequence[str]] = None,   # explicit override; None -> detect via guardrail
     benign_carrier: Optional[str] = None,
+    input_guardrail: Any = None,     # OPTIONAL: score each ENCODED turn for guardrail bypass
+    adversarial_system_prompt: Any = None,   # injected adversary STRATEGY template (path/SeedPrompt); None -> PyRIT default
     max_turns: int = 5,
     seed: int = 0,
     model_name: Optional[str] = None,
     adversarial_model_name: Optional[str] = None,
 ) -> list[RedTeamOutcome]:
-    """Real multi-turn red teaming via :class:`RedTeamingAttack`.
+    """Adaptive all-turn encoding extension via :class:`RedTeamingAttack`.
 
-    Unlike the scripted ``run_multiturn_b_async``, here the adversarial chat produces each turn's
-    prompt from the running conversation AND the objective score (score-as-feedback), the mutation
-    engine smuggles that prompt as a PyRIT request converter, and the objective scorer decides when
-    the goal is met. Requires an adversarial target that natively supports multi-turn + system
-    prompts (e.g. an OpenAIChatTarget) and, to be effective, one that is WILLING to red-team
-    (an aligned model will refuse the adversarial role). The judge should be a strong general model;
-    a weak judge mis-steers the loop (not just the final label)."""
+    The compact :class:`RedTeamOutcome` return shape is retained for API compatibility. This
+    extension is distinct from both the proposal context-priming condition and the amended report
+    condition.
+
+    This is a score-driven, adaptive multi-turn attack. The adversarial chat writes each turn from
+    the objective score (score-as-feedback); the :class:`MutationEngine` smuggles that turn as a
+    PyRIT request converter; and the injected objective scorer decides, turn by turn, when the goal
+    is met and the loop stops.
+
+    STILL a Unicode smuggling attack (proposal 4.3.1): for each objective the harmful-intent
+    trigger words are detected ONCE on the CLEAN seed prompt by the injected ``guardrail`` (Llama
+    Guard saliency + single/pair/triple removal, all-content fallback). Those words are the
+    encoding targets, so the engine smuggles them wherever they surface in the adversary's turns.
+    A benign escalation turn that contains none of them is sent clean - there is nothing harmful to
+    smuggle in it. Pass an explicit ``trigger_words`` to override detection (ablation only).
+
+    The objective-target transcript is reconstructed from PyRIT ``CentralMemory`` to obtain the
+    final response and executed-turn count. The compact return object preserves the established
+    ``objective``-based schema; callers needing full turns should query the same PyRIT memory.
+
+    Caveat: the adversarial chat must be WILLING to red-team. An aligned model refuses the
+    adversarial role, its refusal wastes a turn, and ASR is capped; use a capable adversary.
+    ``adversarial_system_prompt`` injects the adversary STRATEGY template (needs an ``{{objective}}``
+    parameter); ``None`` uses PyRIT's shipped ``text_generation`` strategy.
+    """
     from pyrit.prompt_normalizer import ConverterConfiguration
+    from pyrit.memory import CentralMemory
     await ensure_pyrit()
+    if guardrail is None and trigger_words is None:
+        raise ValueError(
+            "run_redteam requires a guardrail for trigger-word detection (proposal 4.3.1), or an "
+            "explicit trigger_words list. It is STILL a Unicode smuggling attack: the harmful-intent "
+            "tokens detected on the clean seed prompt are what the engine encodes in each turn."
+        )
+    if guardrail is not None and not isinstance(guardrail, Guardrail):
+        guardrail = Guardrail(binary_scorer=guardrail)
+    if input_guardrail is not None and not isinstance(input_guardrail, Guardrail):
+        input_guardrail = Guardrail(binary_scorer=input_guardrail)
+    detector = TriggerWordDetector(guardrail) if (guardrail is not None and trigger_words is None) else None
+
     families = tuple([attack] if isinstance(attack, str) else attack)
-    carrier = benign_carrier if benign_carrier is not None else None
     resolved_model = model_name or getattr(target, "_model_name", None) or type(target).__name__
     resolved_adv = adversarial_model_name or getattr(adversarial, "_model_name", None) or type(adversarial).__name__
 
-    # The mutation engine as a request converter: every adversarial prompt is smuggled before send.
-    engine = MutationEngine(families=list(families), mode=mode,
-                            trigger_words=tuple(trigger_words), rng_seed=seed, benign_carrier=carrier)
-    conv_cfg = P.AttackConverterConfig(
-        request_converters=ConverterConfiguration.from_converters(converters=[engine]))
-    adv_cfg = P.AttackAdversarialConfig(target=adversarial)
+    # Adversary STRATEGY (shared across objectives): injected template or PyRIT's default.
+    if adversarial_system_prompt is not None:
+        sp = adversarial_system_prompt
+        if isinstance(sp, (str, Path)) and Path(str(sp)).exists():
+            from pyrit.models import SeedPrompt
+            sp = SeedPrompt.from_yaml_file(sp)
+        adv_cfg = P.AttackAdversarialConfig(target=adversarial, system_prompt=sp)
+    else:
+        adv_cfg = P.AttackAdversarialConfig(target=adversarial)
     scoring_cfg = P.AttackScoringConfig(objective_scorer=judge)   # objective scorer IN THE LOOP
 
-    attack_obj = P.RedTeamingAttack(
-        objective_target=target,
-        attack_adversarial_config=adv_cfg,
-        attack_converter_config=conv_cfg,
-        attack_scoring_config=scoring_cfg,
-        max_turns=max_turns,
-    )
-
+    memory = CentralMemory.get_memory_instance()
     outcomes: list[RedTeamOutcome] = []
     for seed_id, text in _normalise_prompts(prompts):
+        # Proposal 4.3.1: detect harmful-intent trigger words ONCE on the clean seed prompt.
+        if detector is not None:
+            trig = await detector.detect(seed_id, text)
+            tw, used_fallback, base_score = trig.trigger_words, trig.used_fallback, trig.base_score
+        else:
+            tw, used_fallback, base_score = tuple(trigger_words or ()), False, None
+
+        # One engine + one attack per objective (isolated converter state; concurrency-safe).
+        engine = MutationEngine(families=list(families), mode=mode,
+                                trigger_words=tw, rng_seed=seed, benign_carrier=benign_carrier)
+        conv_cfg = P.AttackConverterConfig(
+            request_converters=ConverterConfiguration.from_converters(converters=[engine]))
+        attack_obj = P.RedTeamingAttack(
+            objective_target=target,
+            attack_adversarial_config=adv_cfg,
+            attack_converter_config=conv_cfg,
+            attack_scoring_config=scoring_cfg,
+            max_turns=max_turns,
+        )
+
         result = await attack_obj.execute_async(objective=text)
         success = str(getattr(getattr(result, "outcome", None), "name", "")).upper() == "SUCCESS"
-        piece = getattr(result, "last_response", None)
-        last = (piece.get_value() if piece is not None and hasattr(piece, "get_value") else "") or ""
+        executed = int(getattr(result, "executed_turns", 0) or 0)
+
+        # Reconstruct the objective-target transcript turn by turn, in sequence order, from memory.
+        turns_sent: list[str] = []
+        user_orig: list[str] = []
+        responses: list[str] = []
+        conv_id = getattr(result, "conversation_id", None)
+        if conv_id:
+            pieces = sorted(memory.get_message_pieces(conversation_id=conv_id),
+                            key=lambda p: getattr(p, "sequence", 0))
+            for p in pieces:
+                role = getattr(p, "role", "")
+                val = getattr(p, "converted_value", None) or getattr(p, "original_value", "") or ""
+                if role == "user":
+                    turns_sent.append(val)
+                    user_orig.append(getattr(p, "original_value", "") or "")
+                elif role == "assistant":
+                    responses.append(val)
+
+        n = len(turns_sent)
+        per_turn = [False] * n
+        rationale = [""] * n
+        if success and n:
+            per_turn[-1] = True
+            last_score = getattr(result, "last_score", None)
+            rationale[-1] = (getattr(last_score, "score_rationale", "") or "") if last_score else ""
+
+        # Per-turn guardrail BYPASS on the ENCODED text the target actually received (optional).
+        per_turn_score: list[Optional[float]] = []
+        per_turn_flag: list[Optional[bool]] = []
+        if input_guardrail is not None:
+            for sent in turns_sent:
+                sc = await input_guardrail.unsafe_score(sent)
+                per_turn_score.append(sc)
+                per_turn_flag.append(sc > input_guardrail.threshold)
+
+        last_resp = responses[-1] if responses else _response_text(result)
+        imp = (imperceptibility(user_orig[-1], turns_sent[-1], families)
+               if (user_orig and turns_sent and user_orig[-1]) else 1.0)
+        scalar_flag = per_turn_flag[-1] if per_turn_flag else None
+
         outcomes.append(RedTeamOutcome(
-            seed_id=seed_id, objective=text, family=families, mode=mode,
-            executed_turns=int(getattr(result, "executed_turns", 0) or 0),
-            judge_success=success, last_response=last,
-            model=resolved_model, adversarial_model=resolved_adv))
+            seed_id=seed_id,
+            objective=text,
+            family=families,
+            mode=mode,
+            executed_turns=(executed or n),
+            judge_success=success,
+            last_response=last_resp,
+            model=resolved_model,
+            adversarial_model=resolved_adv,
+        ))
     return outcomes
 
 
 def run_redteam(**kwargs: Any) -> list[RedTeamOutcome]:
     """Synchronous wrapper over :func:`run_redteam_async`."""
     return asyncio.run(run_redteam_async(**kwargs))
+
+
+# --------------------------------------------------------------------------- #
+# Multi-turn amended report condition: an ADAPTIVE PLAINTEXT prelude followed by ONE
+# FIXED Unicode probe. The fixed bytes support pairing with Experiment 1; the bundled
+# history and cross-session settings do not identify a generic causal context effect.
+# --------------------------------------------------------------------------- #
+#: Shipped adversarial strategy for the adaptive-prelude + fixed-probe design. Injected content:
+#: pass ``adversarial_system_prompt=<path or SeedPrompt>`` to override it.
+DEFAULT_ADAPTIVE_PROBE_TEMPLATE = Path(__file__).parent / "templates" / "unicode_smuggling_adaptive_probe.yaml"
+
+
+def _resolve_adv_template(
+    spec: Any,
+    default_path: Path,
+    *,
+    family_convention: Optional[str] = None,
+):
+    """Load a SeedPrompt, preserve its metadata, and resolve the optional family slot."""
+    from pyrit.models import SeedPrompt
+    if spec is None:
+        prompt = SeedPrompt.from_yaml_file(default_path)
+    elif isinstance(spec, (str, Path)) and Path(str(spec)).exists():
+        prompt = SeedPrompt.from_yaml_file(spec)
+    else:
+        prompt = spec
+    value = getattr(prompt, "value", None)
+    if not isinstance(value, str):
+        raise TypeError("adversarial_system_prompt must resolve to a SeedPrompt with text value")
+    if "{family}" in value:
+        if not family_convention:
+            raise ValueError(
+                "adversarial template contains {family}; pass family_convention explicitly"
+            )
+        rendered = value.replace("{family}", family_convention)
+        data = prompt.model_dump()
+        data["value"] = rendered
+        data["value_sha256"] = hashlib.sha256(rendered.encode("utf-8")).hexdigest()
+        prompt = SeedPrompt(**data)
+    if "{family}" in prompt.value:
+        raise ValueError("unresolved {family} slot in adversarial template")
+    return prompt
+
+
+async def run_adaptive_probe_async(
+    *,
+    target: Any,                     # objective target (the chatbot under test)
+    adversarial: Any,                # adversarial chat that drives the plaintext prelude turns
+    judge: Any,                      # objective scorer (task achieved AND not refused)
+    prompts: Any,
+    guardrail: Any = None,           # trigger-word detection on the CLEAN objective (proposal 4.3.1)
+    attack: Union[str, Sequence[str]] = "variation_selector",
+    mode: str = "targeted",
+    trigger_words: Optional[Sequence[str]] = None,   # explicit override; None -> detect via guardrail
+    benign_carrier: Optional[str] = None,            # visible carrier for a whole-hiding family
+    input_guardrail: Any = None,     # OPTIONAL: score the fixed encoded probe for guardrail bypass
+    adversarial_system_prompt: Any = None,           # adversary strategy template
+    family_convention: Optional[str] = None,          # required if template contains {family}
+    prelude_turns: int = 4,          # adaptive plaintext turns before the fixed probe
+    seed: int = 0,
+    model_name: Optional[str] = None,
+    adversarial_model_name: Optional[str] = None,
+) -> list[MultiTurnOutcome]:
+    """Adaptive plaintext prelude plus one fixed Unicode probe (amended report condition).
+
+    Per objective:
+      1. Detect the harmful-intent trigger words ONCE on the CLEAN objective (proposal 4.3.1),
+         and build the fixed encoded probe = the EXACT payload Experiment 1 / :func:`run_async`
+         sends (same family, mode, trigger words, seed, carrier).
+      2. Run ``prelude_turns`` PLAINTEXT, response-adaptive turns with PyRIT ``RedTeamingAttack``
+         (``score_last_turn_only=True`` forces exactly that many turns and never stops early). The
+         adversarial chat is given the clean objective and told a fixed probe follows; it shapes
+         the conversation but never writes or encodes the probe. No converter is attached, so the
+         prelude is plaintext.
+      3. Deliver the fixed encoded probe as the FINAL turn in the SAME conversation via PyRIT's
+         ``PromptNormalizer`` (continuation by ``conversation_id`` - not a prepended simulation).
+      4. Post-score every turn's response against the clean objective, so the record carries
+         ``pre_probe_success`` (any prelude turn), ``final_probe_success`` (the probe), and the
+         overall ``judge_success``. Guardrail bypass is measured ONLY on the fixed encoded probe.
+
+    The fixed probe controls the final payload bytes. The surrounding treatment is a bundled
+    adaptive history (turn count, escalation, refusal management, and convention teaching), so
+    downstream reports must not call it generic context or claim that byte identity controls cloud
+    session, model revision, or generation settings.
+
+    Caveat: the adversarial chat must be willing to red-team; an aligned model that refuses the
+    role wastes prelude turns. Pass ``trigger_words`` to override detection (then ``guardrail`` is
+    optional). A strategy containing the literal ``{family}`` slot also requires an injected
+    ``family_convention``; unresolved slots fail before model construction. Everything else is
+    injected.
+    """
+    from pyrit.models import Message
+    from pyrit.prompt_normalizer import PromptNormalizer
+    from pyrit.memory import CentralMemory
+    await ensure_pyrit()
+    if guardrail is None and trigger_words is None:
+        raise ValueError(
+            "run_adaptive_probe requires a guardrail for trigger-word detection on the clean "
+            "objective (proposal 4.3.1), or an explicit trigger_words list. The fixed final probe "
+            "is a Unicode smuggling of the objective's trigger words."
+        )
+    if guardrail is not None and not isinstance(guardrail, Guardrail):
+        guardrail = Guardrail(binary_scorer=guardrail)
+    if input_guardrail is not None and not isinstance(input_guardrail, Guardrail):
+        input_guardrail = Guardrail(binary_scorer=input_guardrail)
+    detector = TriggerWordDetector(guardrail) if (guardrail is not None and trigger_words is None) else None
+
+    families = tuple([attack] if isinstance(attack, str) else attack)
+    resolved_model = model_name or getattr(target, "_model_name", None) or type(target).__name__
+    resolved_adv = adversarial_model_name or getattr(adversarial, "_model_name", None) or type(adversarial).__name__
+
+    adv_template = _resolve_adv_template(
+        adversarial_system_prompt,
+        DEFAULT_ADAPTIVE_PROBE_TEMPLATE,
+        family_convention=family_convention,
+    )
+    adv_cfg = P.AttackAdversarialConfig(target=adversarial, system_prompt=adv_template)
+    scoring_cfg = P.AttackScoringConfig(objective_scorer=judge)
+    memory = CentralMemory.get_memory_instance()
+
+    outcomes: list[MultiTurnOutcome] = []
+    for seed_id, text in _normalise_prompts(prompts):
+        # 1) trigger detection on the CLEAN objective + the fixed encoded probe (== single-turn).
+        if detector is not None:
+            trig = await detector.detect(seed_id, text)
+            tw, used_fallback, base_score = trig.trigger_words, trig.used_fallback, trig.base_score
+        else:
+            tw, used_fallback, base_score = tuple(trigger_words or ()), False, None
+        engine = MutationEngine(families=list(families), mode=mode, trigger_words=tw,
+                                rng_seed=seed, benign_carrier=benign_carrier)
+        encoded_probe = (await engine.convert_async(prompt=text)).output_text
+        imp = imperceptibility(text, encoded_probe, families)
+
+        # 2) PLAINTEXT adaptive prelude: exactly ``prelude_turns`` response-adaptive turns, no
+        #    converter attached, never stopping early (score_last_turn_only forces the full budget).
+        attack_obj = P.RedTeamingAttack(
+            objective_target=target,
+            attack_adversarial_config=adv_cfg,
+            attack_scoring_config=scoring_cfg,
+            max_turns=prelude_turns,
+            score_last_turn_only=True,
+        )
+        result = await attack_obj.execute_async(objective=text)
+        conv_id = getattr(result, "conversation_id", None)
+
+        # 3) deliver the FIXED encoded probe into the SAME live conversation (continuation).
+        if conv_id:
+            normalizer = PromptNormalizer()
+            probe_msg = Message.from_prompt(prompt=encoded_probe, role="user")
+            await normalizer.send_prompt_async(message=probe_msg, target=target, conversation_id=conv_id)
+
+        # 4) reconstruct the full transcript (prelude turns + the probe) in sequence order.
+        turns_sent: list[str] = []
+        responses: list[str] = []
+        if conv_id:
+            pieces = sorted(memory.get_message_pieces(conversation_id=conv_id),
+                            key=lambda p: getattr(p, "sequence", 0))
+            for p in pieces:
+                role = getattr(p, "role", "")
+                val = getattr(p, "converted_value", None) or getattr(p, "original_value", "") or ""
+                if role == "user":
+                    turns_sent.append(val)
+                elif role == "assistant":
+                    responses.append(val)
+
+        # post-score EACH response against the clean objective (prelude turns, then the probe).
+        per_turn: list[bool] = []
+        rationale: list[str] = []
+        for resp in responses:
+            ok, why = await _score(judge, resp, text)
+            per_turn.append(ok); rationale.append(why)
+
+        n_total = len(responses)
+        pre_probe_success = any(per_turn[:-1]) if n_total > 1 else False
+        final_probe_success = bool(per_turn[-1]) if n_total else False
+        depth = next((i for i, ok in enumerate(per_turn, start=1) if ok), None)
+
+        # 5) guardrail bypass measured ONLY on the fixed encoded probe (the final turn).
+        per_turn_flag: list[Optional[bool]] = [None] * n_total
+        per_turn_score: list[Optional[float]] = [None] * n_total
+        final_flag: Optional[bool] = None
+        if input_guardrail is not None and n_total:
+            sc = await input_guardrail.unsafe_score(encoded_probe)
+            final_flag = sc > input_guardrail.threshold
+            per_turn_flag[-1] = final_flag
+            per_turn_score[-1] = sc
+
+        outcomes.append(MultiTurnOutcome(
+            seed_id=seed_id, prompt=text, strategy="adaptive_probe", family=families, mode=mode,
+            trigger_words=tuple(tw), executed_turns=n_total,
+            turn_depth_at_first_success=depth,
+            judge_success=(pre_probe_success or final_probe_success),
+            last_response=(responses[-1] if responses else ""), imperceptibility=imp,
+            model=resolved_model, per_turn_success=tuple(per_turn),
+            turns_sent=tuple(turns_sent), responses=tuple(responses),
+            per_turn_rationale=tuple(rationale), input_flagged=final_flag,
+            conversation_id=conv_id, framed=True, used_fallback=used_fallback,
+            scheduled_turns=prelude_turns + 1, adversarial_model=resolved_adv,
+            trigger_base_score=base_score, per_turn_input_flagged=tuple(per_turn_flag),
+            per_turn_input_guardrail_score=tuple(per_turn_score),
+            pre_probe_success=pre_probe_success, final_probe_success=final_probe_success,
+            probe_turn=(n_total if n_total else None), final_probe_text=encoded_probe,
+        ))
+    return outcomes
+
+
+def run_adaptive_probe(**kwargs: Any) -> list[MultiTurnOutcome]:
+    """Synchronous wrapper over :func:`run_adaptive_probe_async`."""
+    return asyncio.run(run_adaptive_probe_async(**kwargs))

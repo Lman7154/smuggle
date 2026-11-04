@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this research artefact, please cite the COS700 report."
+title: "Unicode / ASCII Smuggling Attacks in Chatbots"
+type: software
+authors:
+  - family-names: "Philiso"
+    given-names: "L."
+version: 0.1.0
+date-released: 2026-11-03
+url: "https://github.com/Lman7154/smuggle"
+repository-code: "https://github.com/Lman7154/smuggle"

@@ -144,6 +144,10 @@ def format_conversation(o: Any, *, width: int = 100, show_response_chars: int | 
         + (f"   first success at turn {o.turn_depth_at_first_success}"
            if o.turn_depth_at_first_success else "   (no turn succeeded)"),
     ]
+    if getattr(o, "probe_turn", None) is not None:
+        lines.append(
+            f"ADAPTIVE PROBE       : prelude success={o.pre_probe_success}; "
+            f"fixed-probe success={o.final_probe_success} (probe at turn {o.probe_turn})")
     if o.input_flagged is not None:
         lines.append(f"INPUT GUARDRAIL      : {'BYPASSED' if not o.input_flagged else 'flagged'} (on the encoded delivery)")
     lines.append(_hr(width))
@@ -152,8 +156,12 @@ def format_conversation(o: Any, *, width: int = 100, show_response_chars: int | 
         ok = o.per_turn_success[i - 1] if i - 1 < len(o.per_turn_success) else False
         tag = f"{_PASS}" if ok else f"{_FAIL}"
         inv = _invisible_count(sent)
-        kind = "benign priming" if (i <= len(o.turns_sent) - 1 and not ok and "priming" in rationales[i - 1]) else "delivery"
-        lines.append(f"TURN {i}  [{tag}]  (encoded code points: {inv})")
+        ptf = getattr(o, "per_turn_input_flagged", ())
+        extra = ""
+        if ptf and i - 1 < len(ptf) and ptf[i - 1] is not None:
+            extra = f"; guardrail {'BYPASSED' if not ptf[i - 1] else 'flagged'}"
+        probe_tag = "  [FIXED UNICODE PROBE]" if getattr(o, "probe_turn", None) == i else ""
+        lines.append(f"TURN {i}  [{tag}]  (encoded code points: {inv}{extra}){probe_tag}")
         lines.append(_wrap("ATTACKER -> " + _visible(sent), width - 2, "  "))
         r = resp if show_response_chars is None or len(resp) <= show_response_chars else resp[:show_response_chars] + " …[truncated]"
         lines.append(_wrap("TARGET   -> " + r, width - 2, "  "))

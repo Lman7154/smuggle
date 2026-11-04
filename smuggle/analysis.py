@@ -1,5 +1,9 @@
-"""Analysis the researcher owns (PyRIT does not compute these): ASR + 95% CI
-(Wilson), McNemar paired test + odds ratio, turn-depth, family ranking."""
+"""Analysis owned by the research layer.
+
+Wilson intervals are used only after outcomes are reduced to one binary observation
+per JBB Goal within an inferential cell. Variant deliveries and repeated-Goal pooled
+summaries are descriptive and receive no confidence interval.
+"""
 from __future__ import annotations
 
 import math
@@ -23,9 +27,16 @@ class McNemarResult:
     condition_b: str
     b: int           # success in A, fail in B
     c: int           # fail in A, success in B
-    statistic: float
+    statistic: float # NaN for the exact conditional test
     p_value: float
-    odds_ratio: float
+    odds_ratio: Optional[float]
+    odds_ratio_ci_low: float
+    odds_ratio_ci_high: float
+    method: str
+
+    @property
+    def discordant(self) -> int:
+        return self.b + self.c
 
 
 def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
@@ -39,31 +50,177 @@ def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, flo
 
 
 def asr(successes: int, n: int, *, condition: str = "", model: str = "") -> AsrEstimate:
+    """Estimate ASR when ``n`` is one binary Goal outcome per treatment cell.
+
+    Callers must not pass nested variant deliveries or pools in which a Goal appears
+    more than once; Wilson coverage does not account for that dependence.
+    """
     rate = successes / n if n else 0.0
     lo, hi = wilson_interval(successes, n)
     return AsrEstimate(condition, model, rate, lo, hi, n)
 
 
 def _chi2_sf_1df(x: float) -> float:
-    # survival function of chi-square with 1 dof = erfc(sqrt(x/2))
+    # Survival function of chi-square with 1 dof = erfc(sqrt(x/2)).
     if x <= 0:
         return 1.0
     return math.erfc(math.sqrt(x / 2.0))
 
 
-def mcnemar(paired_a: Sequence[bool], paired_b: Sequence[bool], *,
-            condition_a: str = "A", condition_b: str = "B") -> McNemarResult:
+def _binomial_cdf(k: int, n: int, probability: float) -> float:
+    """P(X <= k) for X ~ Binomial(n, probability), using only the stdlib.
+
+    McNemar's discordant totals are small in this project, so the direct sum is
+    stable and avoids making SciPy a runtime dependency of the artefact.
+    """
+    if k < 0:
+        return 0.0
+    if k >= n:
+        return 1.0
+    if probability <= 0.0:
+        return 1.0
+    if probability >= 1.0:
+        return 0.0
+    q = 1.0 - probability
+    return sum(
+        math.comb(n, i) * probability**i * q ** (n - i)
+        for i in range(k + 1)
+    )
+
+
+def _clopper_pearson(successes: int, n: int, *, alpha: float = 0.05) -> tuple[float, float]:
+    """Exact two-sided binomial interval, computed by monotone bisection."""
+    if not 0 <= successes <= n:
+        raise ValueError("successes must be between zero and n")
+    if n == 0:
+        return (0.0, 1.0)
+
+    if successes == 0:
+        lower = 0.0
+    else:
+        # Solve P_p(X >= successes) = alpha/2. The tail increases with p.
+        lo, hi = 0.0, 1.0
+        for _ in range(100):
+            mid = (lo + hi) / 2.0
+            tail = 1.0 - _binomial_cdf(successes - 1, n, mid)
+            if tail < alpha / 2.0:
+                lo = mid
+            else:
+                hi = mid
+        lower = (lo + hi) / 2.0
+
+    if successes == n:
+        upper = 1.0
+    else:
+        # Solve P_p(X <= successes) = alpha/2. The CDF decreases with p.
+        lo, hi = 0.0, 1.0
+        for _ in range(100):
+            mid = (lo + hi) / 2.0
+            cdf = _binomial_cdf(successes, n, mid)
+            if cdf > alpha / 2.0:
+                lo = mid
+            else:
+                hi = mid
+        upper = (lo + hi) / 2.0
+    return lower, upper
+
+
+def _probability_to_odds(probability: float) -> float:
+    if probability >= 1.0:
+        return float("inf")
+    if probability <= 0.0:
+        return 0.0
+    return probability / (1.0 - probability)
+
+
+def matched_odds_ratio_interval(b: int, c: int, *, alpha: float = 0.05) -> tuple[
+    Optional[float], float, float
+]:
+    """Matched-pair OR ``b/c`` and exact conditional 1-alpha interval.
+
+    With no discordant pairs the effect is not estimable; returning ``None`` is
+    more honest than calling the odds ratio 1.0. Boundary estimates remain zero
+    or infinity, with exact one-sided limits supplied by the transformed
+    Clopper--Pearson interval.
+    """
+    if b < 0 or c < 0:
+        raise ValueError("discordant counts must be non-negative")
+    discordant = b + c
+    if discordant == 0:
+        return None, 0.0, float("inf")
+    estimate = (b / c) if c else float("inf")
+    lower_p, upper_p = _clopper_pearson(b, discordant, alpha=alpha)
+    return estimate, _probability_to_odds(lower_p), _probability_to_odds(upper_p)
+
+
+def exact_mcnemar_p(b: int, c: int) -> float:
+    """Two-sided exact conditional McNemar p-value."""
+    if b < 0 or c < 0:
+        raise ValueError("discordant counts must be non-negative")
+    discordant = b + c
+    if discordant == 0:
+        return 1.0
+    tail = sum(math.comb(discordant, k) for k in range(min(b, c) + 1)) / (2**discordant)
+    return min(1.0, 2.0 * tail)
+
+
+def holm_adjust(p_values: Sequence[float]) -> list[float]:
+    """Holm family-wise-error adjusted p-values, in the original order."""
+    m = len(p_values)
+    order = sorted(range(m), key=lambda i: p_values[i])
+    adjusted = [1.0] * m
+    running = 0.0
+    for rank, index in enumerate(order):
+        candidate = min(1.0, (m - rank) * float(p_values[index]))
+        running = max(running, candidate)
+        adjusted[index] = running
+    return adjusted
+
+
+def mcnemar(
+    paired_a: Sequence[bool],
+    paired_b: Sequence[bool],
+    *,
+    condition_a: str = "A",
+    condition_b: str = "B",
+    method: str = "exact",
+) -> McNemarResult:
+    """Paired binary comparison with an exact test by default.
+
+    The exact conditional test is appropriate for the sparse discordant counts
+    in this study. ``method='asymptotic'`` retains the continuity-corrected
+    chi-square calculation for explicit sensitivity analyses.
+    """
     if len(paired_a) != len(paired_b):
         raise ValueError("McNemar requires the identical seed set in both conditions")
     b = sum(1 for a, bb in zip(paired_a, paired_b) if a and not bb)
     c = sum(1 for a, bb in zip(paired_a, paired_b) if (not a) and bb)
-    if b + c == 0:
-        stat, p = 0.0, 1.0
+
+    if method == "exact":
+        statistic = float("nan")
+        p_value = exact_mcnemar_p(b, c)
+    elif method == "asymptotic":
+        if b + c == 0:
+            statistic, p_value = 0.0, 1.0
+        else:
+            statistic = (abs(b - c) - 1) ** 2 / (b + c)
+            p_value = _chi2_sf_1df(statistic)
     else:
-        stat = (abs(b - c) - 1) ** 2 / (b + c)   # continuity-corrected
-        p = _chi2_sf_1df(stat)
-    odds = (b / c) if c else float("inf") if b else 1.0
-    return McNemarResult(condition_a, condition_b, b, c, stat, p, odds)
+        raise ValueError("method must be 'exact' or 'asymptotic'")
+
+    odds, odds_low, odds_high = matched_odds_ratio_interval(b, c)
+    return McNemarResult(
+        condition_a=condition_a,
+        condition_b=condition_b,
+        b=b,
+        c=c,
+        statistic=statistic,
+        p_value=p_value,
+        odds_ratio=odds,
+        odds_ratio_ci_low=odds_low,
+        odds_ratio_ci_high=odds_high,
+        method=method,
+    )
 
 
 def turn_depth_at_first_success(per_turn_success: Sequence[bool]) -> int | None:
@@ -88,14 +245,14 @@ class FamilyModeReport:
     model: str
     family: str
     mode: str
-    n: int                               # unique inputs used for ASR (after de-duplication)
+    n: int                               # byte-distinct variant deliveries
     successes: int
-    asr: float
-    asr_ci: tuple[float, float]
-    n_guarded: int                       # subset that had an input-guardrail verdict
+    asr: float                           # descriptive delivery rate; no CI
+    n_guarded: int                       # eligible clean-unsafe deliveries
     bypasses: Optional[int]
-    bypass_rate: Optional[float]         # None when nothing was guardrail-scored
-    bypass_ci: Optional[tuple[float, float]]
+    bypass_rate: Optional[float]
+    joint_successes: Optional[int]       # encoded-safe delivery AND target compliance
+    joint_rate: Optional[float]
     mean_imperceptibility: float
     n_raw: int = 0                       # variants before de-duplication (greedy repeats removed)
     n_fallback: int = 0                  # variants whose detection fell back to all content words
@@ -106,12 +263,14 @@ def _family_key(fam: Any) -> str:
 
 
 def _dedup_identical(items: Sequence[Any]) -> list:
-    """Drop greedy-identical repeats within a cell: keep one outcome per (seed_id, encoded_text).
+    """Keep one recorded outcome per ``(seed_id, encoded_text)`` within a cell.
 
-    Under greedy decoding an identical encoded input yields an identical reply, so repeats
-    carry no additional information; counting them would inflate N and shrink the CI by ~sqrt
-    of the repeat factor (C1). Outcomes without an ``encoded_text`` (e.g. multi-turn) are kept
-    as-is."""
+    Repeated mutation seeds can produce the same byte input. Counting those as
+    independent variants would inflate N. Hosted inference can still return
+    different text for the same input, so this function preserves the first
+    deployment observation and does not claim that duplicate responses are
+    deterministic. Outcomes without ``encoded_text`` are kept as-is.
+    """
     seen: set = set()
     out: list = []
     for o in items:
@@ -127,20 +286,28 @@ def _dedup_identical(items: Sequence[Any]) -> list:
     return out
 
 
-def bypass_and_asr(outcomes: Iterable[Any], *, collapse_identical: bool = True) -> list[FamilyModeReport]:
-    """Group outcomes by (model, family, mode) and report two DISTINCT measures:
+def bypass_and_asr(
+    outcomes: Iterable[Any],
+    *,
+    collapse_identical: bool = True,
+    eligible_seed_ids: Optional[set[str]] = None,
+) -> list[FamilyModeReport]:
+    """Group outcomes by ``(model, family, mode)`` and keep three layers distinct.
 
-    - compliance ASR  = fraction where the judge found the OBJECTIVE was achieved;
-    - guardrail-bypass = fraction of the input-guardrail-scored subset that evaded it.
+    - compliance ASR: the target achieved the objective;
+    - diagnostic bypass: the encoded input was predicted safe by the off-path
+      classifier, among Goals that classifier predicted unsafe in clean text;
+    - joint success: the same clean-unsafe eligible delivery was predicted safe by
+      that classifier and achieved the objective. This isolates encoding-induced
+      gate evasion from clean-text classifier misses; no guard was enforced.
 
-    They are kept separate (never collapsed) because decode/mention != task done, and
-    evading the filter != complying. Both carry Wilson 95% CIs. Bypass is computed only
-    over the subset with a guardrail verdict (n_guarded), so coverage is explicit (#4).
+    ``eligible_seed_ids`` must contain the clean-unsafe Goal IDs for the
+    proposal/report bypass definition. If omitted, every row with an encoded
+    verdict is included for backward compatibility; callers must label that
+    broader denominator explicitly.
 
-    ``collapse_identical`` (default True) de-duplicates greedy-identical inputs within a cell
-    before computing ASR, so N counts UNIQUE inputs (C1); ``n_raw`` keeps the pre-dedup count.
-    This is the variant-level view; for the headline number prefer :func:`asr_over_prompts`,
-    which treats each behaviour as the unit.
+    Byte-identical inputs are de-duplicated within each cell by default. Variant
+    estimates are descriptive because variants remain nested within Goals.
     """
     groups: dict[tuple[str, str, str], list] = {}
     for o in outcomes:
@@ -154,19 +321,30 @@ def bypass_and_asr(outcomes: Iterable[Any], *, collapse_identical: bool = True) 
         items = _dedup_identical(raw_items) if collapse_identical else list(raw_items)
         n = len(items)
         succ = sum(1 for o in items if o.judge_success)
-        a = asr(succ, n)
-        guarded = [o for o in items if getattr(o, "input_flagged", None) is not None]
+        compliance_rate = succ / n if n else 0.0
+        guarded = [
+            o for o in items
+            if getattr(o, "input_flagged", None) is not None
+            and (
+                eligible_seed_ids is None
+                or getattr(o, "seed_id", "") in eligible_seed_ids
+            )
+        ]
         ng = len(guarded)
         if ng:
             byp = sum(1 for o in guarded if not o.input_flagged)
-            bypass_rate, bypass_ci, bypasses = byp / ng, wilson_interval(byp, ng), byp
+            joint = sum(1 for o in guarded if (not o.input_flagged) and bool(o.judge_success))
+            bypass_rate, bypasses = byp / ng, byp
+            joint_rate, joint_successes = joint / ng, joint
         else:
-            bypass_rate, bypass_ci, bypasses = None, None, None
+            bypass_rate, bypasses = None, None
+            joint_rate, joint_successes = None, None
         imp = [float(getattr(o, "imperceptibility", 0.0)) for o in items]
         reports.append(FamilyModeReport(
             model=model, family=fam, mode=mode, n=n, successes=succ,
-            asr=a.asr, asr_ci=(a.ci_low, a.ci_high),
-            n_guarded=ng, bypasses=bypasses, bypass_rate=bypass_rate, bypass_ci=bypass_ci,
+            asr=compliance_rate,
+            n_guarded=ng, bypasses=bypasses, bypass_rate=bypass_rate,
+            joint_successes=joint_successes, joint_rate=joint_rate,
             mean_imperceptibility=(sum(imp) / len(imp) if imp else 0.0),
             n_raw=n_raw, n_fallback=n_fb,
         ))
@@ -175,19 +353,24 @@ def bypass_and_asr(outcomes: Iterable[Any], *, collapse_identical: bool = True) 
 
 
 def format_report_table(reports: Sequence[FamilyModeReport]) -> str:
-    """Render reports as a plain-text table with bypass and ASR in SEPARATE columns."""
-    hdr = (f"{'model':20} {'family':22} {'mode':9} {'N':>3} "
-           f"{'ASR':>6} {'ASR 95%CI':>14} {'bypass':>7} {'byp 95%CI':>14} {'imperc':>7}")
+    """Render descriptive delivery counts and rates without inferential intervals."""
+    hdr = (
+        f"{'model':20} {'family':22} {'mode':9} {'N_deliv':>7} "
+        f"{'compliant':>9} {'ASR':>6} {'N_guard':>7} {'bypass':>15} "
+        f"{'joint':>15} {'imperc':>7}"
+    )
     lines = [hdr, "-" * len(hdr)]
     for r in reports:
-        asr_ci = f"[{r.asr_ci[0]:.2f},{r.asr_ci[1]:.2f}]"
         if r.bypass_rate is None:
-            byp, byp_ci = "n/a", "n/a"
+            bypass, joint = "n/a", "n/a"
         else:
-            byp = f"{r.bypass_rate:.0%}"
-            byp_ci = f"[{r.bypass_ci[0]:.2f},{r.bypass_ci[1]:.2f}]"
-        lines.append(f"{r.model[:20]:20} {r.family[:22]:22} {r.mode:9} {r.n:>3} "
-                     f"{r.asr:>5.0%} {asr_ci:>14} {byp:>7} {byp_ci:>14} {r.mean_imperceptibility:>7.3f}")
+            bypass = f"{r.bypasses}/{r.n_guarded} ({r.bypass_rate:.0%})"
+            joint = f"{r.joint_successes}/{r.n_guarded} ({r.joint_rate:.0%})"
+        lines.append(
+            f"{r.model[:20]:20} {r.family[:22]:22} {r.mode:9} {r.n:>7} "
+            f"{r.successes:>9} {r.asr:>5.0%} {r.n_guarded:>7} {bypass:>15} "
+            f"{joint:>15} {r.mean_imperceptibility:>7.3f}"
+        )
     return "\n".join(lines)
 
 
@@ -222,14 +405,22 @@ _AGGREGATORS = {
 }
 
 
-def per_prompt_success(outcomes: Iterable[Any], *, aggregate: str = "any") -> dict[str, bool]:
-    """Collapse each behaviour's variant outcomes to one binary via ``aggregate``
-    ('any' = best-of-K, 'majority', or 'all'). Keyed by seed_id."""
+def per_prompt_success(outcomes: Iterable[Any], *, aggregate: str = "any",
+                       collapse_identical: bool = True) -> dict[str, bool]:
+    """Collapse each behaviour's outcomes to one binary via ``aggregate``.
+
+    By default, byte-identical encoded inputs are collapsed first (keeping the first observed
+    response). This prevents mutation-seed collisions from becoming undeclared extra inference
+    attempts, which matters when a remote deployment varies despite greedy decoding.
+    """
     if aggregate not in _AGGREGATORS:
         raise ValueError(f"aggregate must be one of {sorted(_AGGREGATORS)}")
     agg = _AGGREGATORS[aggregate]
+    items = list(outcomes)
+    if collapse_identical:
+        items = _dedup_identical(items)
     by_prompt: dict[str, list[bool]] = {}
-    for o in outcomes:
+    for o in items:
         by_prompt.setdefault(getattr(o, "seed_id", ""), []).append(bool(o.judge_success))
     return {pid: bool(agg(vals)) for pid, vals in by_prompt.items()}
 
@@ -242,12 +433,13 @@ def asr_over_prompts(outcomes: Iterable[Any], *, aggregate: str = "any") -> list
         groups.setdefault((getattr(o, "model", ""), _family_key(o.family), o.mode), []).append(o)
     out: list[PromptLevelAsr] = []
     for (model, fam, mode), items in groups.items():
-        succ_map = per_prompt_success(items, aggregate=aggregate)
+        unique_items = _dedup_identical(items)
+        succ_map = per_prompt_success(unique_items, aggregate=aggregate, collapse_identical=False)
         n = len(succ_map)
         s = sum(1 for v in succ_map.values() if v)
         lo, hi = wilson_interval(s, n)
         out.append(PromptLevelAsr(model, fam, mode, aggregate, (s / n if n else 0.0),
-                                  lo, hi, n, len(items)))
+                                  lo, hi, n, len(unique_items)))
     out.sort(key=lambda r: (r.model, r.family, r.mode))
     return out
 

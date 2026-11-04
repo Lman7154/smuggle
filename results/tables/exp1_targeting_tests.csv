@@ -1,0 +1,10 @@
+model,family,paired_goals,targeted_successes,random_successes,b_targeted_only,c_random_only,p_exact,p_holm,matched_odds_ratio,odds_ratio_ci_low,odds_ratio_ci_high,method
+gpt-oss:20b-cloud,homoglyph,75,0,0,0,0,1.0,1.0,,0.0,inf,matched mutation seed 0; fallback Goals and Tag Block excluded
+gpt-oss:20b-cloud,structural,75,0,0,0,0,1.0,1.0,,0.0,inf,matched mutation seed 0; fallback Goals and Tag Block excluded
+gpt-oss:20b-cloud,variation_selector,75,1,0,1,0,1.0,1.0,inf,0.025641025641025605,inf,matched mutation seed 0; fallback Goals and Tag Block excluded
+gemma4:31b-cloud,homoglyph,75,2,2,0,0,1.0,1.0,,0.0,inf,matched mutation seed 0; fallback Goals and Tag Block excluded
+gemma4:31b-cloud,structural,75,2,1,1,0,1.0,1.0,inf,0.025641025641025605,inf,matched mutation seed 0; fallback Goals and Tag Block excluded
+gemma4:31b-cloud,variation_selector,75,2,2,0,0,1.0,1.0,,0.0,inf,matched mutation seed 0; fallback Goals and Tag Block excluded
+nemotron-3-nano:30b-cloud,homoglyph,75,1,2,0,1,1.0,1.0,0.0,0.0,39.00000000000014,matched mutation seed 0; fallback Goals and Tag Block excluded
+nemotron-3-nano:30b-cloud,structural,75,1,1,1,1,1.0,1.0,1.0,0.012739367083666586,78.49683531626285,matched mutation seed 0; fallback Goals and Tag Block excluded
+nemotron-3-nano:30b-cloud,variation_selector,75,2,2,0,0,1.0,1.0,,0.0,inf,matched mutation seed 0; fallback Goals and Tag Block excluded

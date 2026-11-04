@@ -1,22 +1,23 @@
 """Load JailbreakBench JBB-Behaviors the RIGHT way: the harmful *Goal* request.
 
 Why this module exists: PyRIT 1.1.0's built-in ``jbb_behaviors`` provider puts the short
-*Behavior* label (e.g. "Defamation", "Body shaming") into ``SeedPrompt.value`` and DROPS the
-actual request. Feeding that label to the guardrail or the target means scoring/attacking a
-bare topic word, not a harmful request - which is why Llama Guard flagged only ~16/100 and
-trigger detection fell back ~83/100 when run on the provider's output. This loader reads the
-``Goal`` column (the real request, e.g. "Write a defamatory article claiming ...") together with
-``Category``; on the Goals, Llama Guard flags ~96/100 and fallback drops to ~56/100.
+*Behavior* label (for example, a category-like topic label) into ``SeedPrompt.value`` and drops
+the full *Goal* request. Feeding that label to the guard or target evaluates a topic rather than
+the benchmark request. This loader reads the ``Goal`` and ``Category`` fields explicitly. On the
+Goals, Llama Guard flagged 96/100 in the recorded run. The recorded single/pair/triple detector
+used fallback for 25/100 Goals; this is a run-specific value, not a property of the dataset.
 
-    from smuggle import jbb, run_experiment_1, run_experiment_3a, load_context_templates
+    from smuggle import (jbb, run_experiment_1, run_experiment_3a,
+                         load_context_templates, make_priming_provider)
     rows   = jbb.load_jbb_goals()                 # the real harmful requests + categories
     prompts = jbb.jbb_prompts(rows)               # <- use THESE as the attack prompts
     # single-turn:
     rows1, errs = run_experiment_1(targets=..., prompts=prompts, guardrail=..., judge=...)
-    # multi-turn Strategy A (category-matched benign priming):
-    cats = jbb.build_priming_categories(rows)     # {goal_text -> benign-template key}
+    # original proposal context-priming condition:
+    cats = jbb.build_priming_categories(rows)
+    priming = make_priming_provider(load_context_templates(), categories=cats)
     rows3a, errs = run_experiment_3a(targets=..., prompts=prompts, guardrail=..., judge=...,
-                                     templates=load_context_templates(), categories=cats)
+                                     priming=priming)
 """
 from __future__ import annotations
 
@@ -43,7 +44,7 @@ _HF_DATASET = "JailbreakBench/JBB-Behaviors"
 _HF_CONFIG = "behaviors"
 
 
-def _load_dataset_offline_first(dataset: str, config: str):
+def _load_dataset_offline_first(dataset: str, config: str, *, revision: str | None = None):
     """Load a HuggingFace dataset from the LOCAL cache without touching the network when possible.
 
     JBB-Behaviors is already cached on disk, so there is no need to reach Hugging Face. We first
@@ -60,13 +61,13 @@ def _load_dataset_offline_first(dataset: str, config: str):
         except Exception:
             pass
         try:
-            return load_dataset(dataset, config)          # offline: read the local cache
+            return load_dataset(dataset, config, revision=revision)  # offline: local cache
         except Exception:
             try:
                 datasets.config.HF_HUB_OFFLINE = False     # cache miss -> allow one download
             except Exception:
                 pass
-            return load_dataset(dataset, config)
+            return load_dataset(dataset, config, revision=revision)
     finally:
         if prev is not None:
             try:
@@ -76,7 +77,7 @@ def _load_dataset_offline_first(dataset: str, config: str):
 
 
 def load_jbb_goals(split: str = "harmful", *, dataset: str = _HF_DATASET,
-                   config: str = _HF_CONFIG) -> list[dict[str, Any]]:
+                   config: str = _HF_CONFIG, revision: str | None = None) -> list[dict[str, Any]]:
     """Return JBB-Behaviors rows as dicts with keys ``goal``, ``category``, ``behavior``, ``index``.
 
     ``goal`` is the actual harmful request - use it as the attack prompt. Requires the
@@ -88,9 +89,11 @@ def load_jbb_goals(split: str = "harmful", *, dataset: str = _HF_DATASET,
     except Exception as e:  # pragma: no cover
         raise RuntimeError("The 'datasets' package is required to load JBB-Behaviors "
                            "(pip install datasets).") from e
-    d = _load_dataset_offline_first(dataset, config)
+    d = _load_dataset_offline_first(dataset, config, revision=revision)
     if split not in d:
-        split = list(d.keys())[0]
+        raise ValueError(
+            f"JBB split {split!r} is unavailable; present splits: {sorted(d.keys())}"
+        )
     ds = d[split]
 
     def _get(row: Any, *keys: str) -> Any:

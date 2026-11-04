@@ -1,8 +1,78 @@
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .pytest_cache/
 .hypothesis/
 *.egg-info/
-*.sqlite
+.venv/
+venv/
+build/
+dist/
+.coverage
+htmlcov/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Private research evidence: never publish
 runs/
+private/
+runs/plaintext/
+*.sqlite
+*.sqlite3
+*.db
+*transcript*.txt
+strategy_a_full_conversation.txt
+research_notes.md
+research_notes_draft_before_some_changes.md
+repair_pilot.py
+verify_pilot_*.py
+verify_seed*.py
+test_smoke_backup.ipynb
+smuggle_test.ipynb
+_tmp_tok.py
+
+# IDE and local rollback state
+.kiro/
 .revert-backup-b-c/
+.vscode/
+.idea/
+
+# Old report template/build tree
+COS700_Research_Report_Template (1)/
+
+# Notebook and report build products
+*.ipynb
+.ipynb_checkpoints/
+report_final/*.aux
+report_final/*.bbl
+report_final/*.blg
+report_final/*.fdb_latexmk
+report_final/*.fls
+report_final/*.log
+report_final/*.out
+report_final/*.synctex.gz
+report_final/*.toc
+report_final/*.pdf
+report_final/*.docx
+report_final/docx_build/reference.docx
+
+# Locally generated history-free release snapshot
+public_release/
+public_release_*/
+.remote-repo-review/
+
+# Unreported experimental extension retained only in the private workspace
+smuggle/demos.py
+
+# Private/generated review and operator utilities
+semantic-review/
+_proposal.txt
+run_exp3a_supervised.py
+regenerate_results.py
+verify_prepend_delivery.py
+report_final/layout_check/

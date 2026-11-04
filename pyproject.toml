@@ -5,13 +5,27 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "unicode-smuggle"
 version = "0.1.0"
-description = "Plug-and-play Unicode/ASCII smuggling attack artefact built on PyRIT (COS700)"
+description = "Unicode/ASCII smuggling measurement artefact built on PyRIT for COS700"
 readme = "README.md"
+authors = [{name = "L. Philiso"}]
 requires-python = ">=3.10"
-dependencies = ["pyrit==1.1.0", "pyyaml>=6", "datasets>=2"]
+dependencies = [
+  "pyrit==1.1.0",
+  "pyyaml==6.0.3",
+  "datasets==4.8.2",
+  "openai==3.26.1",
+  "matplotlib==3.10.9",
+]
+
+[project.urls]
+Repository = "https://github.com/Lman7154/smuggle"
 
 [tool.setuptools]
 packages = ["smuggle"]
 
 [tool.setuptools.package-data]
 smuggle = ["templates/*.yaml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+norecursedirs = ["public_release", "public_release_*", "runs", ".git", ".venv", ".hypothesis", ".pytest_cache", "__pycache__"]

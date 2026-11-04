@@ -1,0 +1,9 @@
+stratum,rows,pre_probe_successes,final_probe_successes,overall_successes
+generic_convention_phase,19,3,0,3
+family_specific_phase,1181,98,16,105
+any_recorded_output_over_claimed_cap,187,14,0,14
+final_empty_length_completion,138,2,0,2
+observable_final_completion,1062,99,16,106
+tag_block_observable_final,178,11,0,11
+conservative_exclusion_union,198,16,0,16
+phase_cap_sensitivity_retained,1002,85,16,92

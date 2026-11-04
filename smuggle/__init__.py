@@ -26,11 +26,13 @@ from .runner import (
     make_refusal_scorer, init_pyrit, init_pyrit_sqlite, init_pyrit_sqlite_async,
     run_multiturn_a, run_multiturn_a_async, run_multiturn_b, run_multiturn_b_async, MultiTurnOutcome,
     run_redteam, run_redteam_async, RedTeamOutcome,
+    run_adaptive_probe, run_adaptive_probe_async,
 )
 from . import export
 from .export import save_jsonl, load_jsonl
 from .analysis import (
-    asr, wilson_interval, mcnemar, family_ranking,
+    asr, wilson_interval, mcnemar, exact_mcnemar_p, matched_odds_ratio_interval,
+    holm_adjust, family_ranking,
     bypass_and_asr, format_report_table,
     asr_over_prompts, per_prompt_success, fallback_rate,
     mcnemar_over_prompts, targeted_vs_random,
@@ -51,7 +53,9 @@ from .jbb import load_jbb_goals, jbb_prompts, build_priming_categories, JBB_CATE
 
 from .experiments import (
     run_experiment_1, run_experiment_1_async, run_experiment_2, run_experiment_2_async,
-    run_experiment_3a, run_experiment_3a_async, run_experiment_3b, run_experiment_3b_async,
+    run_experiment_3a, run_experiment_3a_async,
+    run_experiment_adaptive_probe, run_experiment_adaptive_probe_async,
+    run_experiment_3b, run_experiment_3b_async,
     run_decode_probe, run_decode_probe_async,
     make_decode_priming, make_decode_priming_async,
     make_jailbreak_priming, make_jailbreak_priming_async,
@@ -60,7 +64,6 @@ from .experiments import (
     AdaptiveUnicodeAttempt, AdaptiveUnicodeOutcome,
     FAMILY_PAIRS,
 )
-
 
 def _auto_init() -> None:
     """Initialise PyRIT CentralMemory once, automatically, at import time.
@@ -126,9 +129,11 @@ __all__ = [
     "make_judge", "make_guardrail", "make_target", "make_refusal_scorer",
     "export", "save_jsonl", "load_jsonl",
     "run_multiturn_a", "run_multiturn_a_async", "run_multiturn_b", "run_multiturn_b_async", "MultiTurnOutcome",
+    "run_redteam", "run_redteam_async", "run_adaptive_probe", "run_adaptive_probe_async",
     "MutationEngine", "FAMILIES", "ALL_FAMILIES", "imperceptibility", "token_fragmentation",
     "GuardrailAdapter", "TriggerWordDetector", "TriggerResult",
-    "asr", "wilson_interval", "mcnemar", "family_ranking",
+    "asr", "wilson_interval", "mcnemar", "exact_mcnemar_p",
+    "matched_odds_ratio_interval", "holm_adjust", "family_ranking",
     "bypass_and_asr", "format_report_table",
     "asr_over_prompts", "per_prompt_success", "fallback_rate",
     "mcnemar_over_prompts", "targeted_vs_random",
@@ -138,7 +143,9 @@ __all__ = [
     "context_templates", "load_context_templates", "make_priming_provider",
     "jbb", "load_jbb_goals", "jbb_prompts", "build_priming_categories", "JBB_CATEGORY_TO_TEMPLATE",
     "run_experiment_1", "run_experiment_1_async", "run_experiment_2", "run_experiment_2_async",
-    "run_experiment_3a", "run_experiment_3a_async", "run_experiment_3b", "run_experiment_3b_async",
+    "run_experiment_3a", "run_experiment_3a_async",
+    "run_experiment_adaptive_probe", "run_experiment_adaptive_probe_async",
+    "run_experiment_3b", "run_experiment_3b_async",
     "run_decode_probe", "run_decode_probe_async",
     "make_decode_priming", "make_decode_priming_async",
     "make_jailbreak_priming", "make_jailbreak_priming_async",

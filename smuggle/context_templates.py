@@ -10,9 +10,10 @@ per-prompt category mapping, and the YAML path are all supplied by the caller.
     from smuggle import context_templates as T
     from smuggle import run_experiment_3a
     tmpl = T.load_context_templates()                         # injected benign content
-    cats = {objective_text: category for ...}                 # from JBB-Behaviors metadata
+    cats = {objective_text: category for ...}                 # from JBB metadata
+    priming = T.make_priming_provider(tmpl, categories=cats)
     rows, errs = run_experiment_3a(targets=..., prompts=..., guardrail=..., judge=...,
-                                   templates=tmpl, categories=cats)
+                                   priming=priming)
 """
 from __future__ import annotations
 

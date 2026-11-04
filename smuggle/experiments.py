@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import itertools
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 from .engine import FAMILIES, WHOLE_HIDING_FAMILIES, MutationEngine
 from .guardrail import Guardrail
@@ -140,23 +140,33 @@ async def run_experiment_2_async(
     return rows, errors
 
 
-async def run_experiment_3a_async(
+async def run_experiment_adaptive_probe_async(
     *, targets: Any, prompts: Any, guardrail: Any, judge: Any, adversarial: Any = None,
-    families: Sequence[str] = FAMILIES, n_variants: int = 3, max_turns: int = 5,
-    system_prompt: Any = None, priming: Any = None, refusal_scorer: Any = None,
-    followup: Any = None, input_guardrail: Any = None,
+    families: Sequence[str] = FAMILIES, n_variants: int = 3, prelude_turns: int = 4,
+    mode: str = "targeted", adversarial_system_prompt: Any = None, carriers: Any = None,
+    family_conventions: Optional[Mapping[str, str]] = None,
+    input_guardrail: Any = None,
 ) -> tuple[list, list]:
-    """Multi-turn Strategy A (context priming): n_variants per family per prompt, over every target.
+    """Amended report condition: adaptive plaintext prelude plus one fixed Unicode probe.
 
-    The adversarial chat GENERATES the benign priming turns from the shipped
-    ``unicode_smuggling_context_priming.yaml`` template (proposal 4.5.1); turn 4 then
-    delivers the same encoded prompt Experiment 1 uses. Pass ``adversarial`` (required for
-    the proposal design); override the template with ``system_prompt=<path|SeedPrompt>``.
-    Pass ``priming=`` only to run the reproducible scripted-context ablation instead."""
-    if adversarial is None and priming is None:
+    For each target x family x variant, the adversarial chat drives ``prelude_turns`` plaintext,
+    response-adaptive turns (it is told the clean objective and that a fixed encoded probe
+    follows), then the harness delivers the EXACT single-turn encoded payload as the final turn in
+    the SAME live conversation (:func:`smuggle.run_adaptive_probe_async`). This controls the final
+    payload bytes while measuring one bundled adaptive-prelude condition; it does not by itself
+    isolate generic conversational context from cloud-session or generation-setting differences.
+
+    Pass ``adversarial`` (required). Override the strategy with a path or ``SeedPrompt``.
+    If that template contains the launcher's literal ``{family}`` slot, supply
+    ``family_conventions={family: description}``; unresolved slots are rejected rather than sent
+    to the adversary. ``carriers`` supplies distinct visible carriers for whole-hiding families.
+    The proposal's original context-priming wrapper is :func:`run_experiment_3a_async`; this
+    amended condition is the one used by the report launcher.
+    """
+    if adversarial is None:
         raise ValueError(
-            "Experiment 3A needs adversarial=<OpenAIChatTarget> to generate the benign priming "
-            "turns (proposal 4.5.1), or priming=<scripted context> for the scripted ablation."
+            "The adaptive-probe condition needs adversarial=<OpenAIChatTarget> to drive the "
+            "prelude turns before the fixed Unicode probe (run_adaptive_probe)."
         )
     await _R.ensure_pyrit()
     rows: list = []
@@ -164,15 +174,66 @@ async def run_experiment_3a_async(
     for target in _as_list(targets):
         m = _mname(target)
         for fam in families:
+            _require_distinct_carriers(fam, n_variants, carriers)
+            family_convention = family_conventions.get(fam) if family_conventions else None
             for s in range(n_variants):
                 try:
-                    rows.extend(await _R.run_multiturn_a_async(
-                        target=target, prompts=prompts, judge=judge, guardrail=guardrail,
-                        attack=fam, adversarial=adversarial, system_prompt=system_prompt,
-                        priming=priming, refusal_scorer=refusal_scorer, followup=followup,
-                        input_guardrail=input_guardrail, max_turns=max_turns, seed=s, model_name=m))
+                    rows.extend(await _R.run_adaptive_probe_async(
+                        target=target, adversarial=adversarial, judge=judge, guardrail=guardrail,
+                        prompts=prompts, attack=fam, mode=mode,
+                        benign_carrier=_carrier_for(carriers, s), input_guardrail=input_guardrail,
+                        adversarial_system_prompt=adversarial_system_prompt,
+                        family_convention=family_convention,
+                        prelude_turns=prelude_turns, seed=s, model_name=m))
                 except Exception as e:
                     errors.append((m, fam, "A", s, f"{type(e).__name__}: {e}"))
+    return rows, errors
+
+
+async def run_experiment_3a_async(
+    *, targets: Any, prompts: Any, guardrail: Any, judge: Any, adversarial: Any = None,
+    families: Sequence[str] = FAMILIES, n_variants: int = 3, max_turns: int = 5,
+    system_prompt: Any = None, priming: Any = None, refusal_scorer: Any = None,
+    followup: Any = None, input_guardrail: Any = None,
+) -> tuple[list, list]:
+    """Original proposal Strategy A: benign context priming plus encoded delivery.
+
+    The adversarial chat generates the proposal's benign opening turns from
+    ``unicode_smuggling_context_priming.yaml``; callers may instead inject scripted
+    ``priming``. This wrapper is preserved separately from the report's amended
+    adaptive-escalatory condition, :func:`run_experiment_adaptive_probe_async`.
+    """
+    if adversarial is None and priming is None:
+        raise ValueError(
+            "Proposal Experiment 3a needs adversarial=<OpenAIChatTarget> to generate benign "
+            "priming, or priming=<scripted context>."
+        )
+    await _R.ensure_pyrit()
+    rows: list = []
+    errors: list = []
+    for target in _as_list(targets):
+        model = _mname(target)
+        for family in families:
+            for seed in range(n_variants):
+                try:
+                    rows.extend(await _R.run_multiturn_a_async(
+                        target=target,
+                        prompts=prompts,
+                        judge=judge,
+                        guardrail=guardrail,
+                        attack=family,
+                        adversarial=adversarial,
+                        system_prompt=system_prompt,
+                        priming=priming,
+                        refusal_scorer=refusal_scorer,
+                        followup=followup,
+                        input_guardrail=input_guardrail,
+                        max_turns=max_turns,
+                        seed=seed,
+                        model_name=model,
+                    ))
+                except Exception as exc:
+                    errors.append((model, family, "proposal_3a", seed, f"{type(exc).__name__}: {exc}"))
     return rows, errors
 
 
@@ -214,7 +275,13 @@ def run_experiment_2(**kw: Any) -> tuple[list, list]:
 
 
 def run_experiment_3a(**kw: Any) -> tuple[list, list]:
+    """Synchronous wrapper for the original proposal context-priming condition."""
     return asyncio.run(run_experiment_3a_async(**kw))
+
+
+def run_experiment_adaptive_probe(**kw: Any) -> tuple[list, list]:
+    """Synchronous wrapper for the amended adaptive-prelude report condition."""
+    return asyncio.run(run_experiment_adaptive_probe_async(**kw))
 
 
 def run_experiment_3b(**kw: Any) -> tuple[list, list]:
@@ -377,31 +444,25 @@ def make_jailbreak_priming(family: str, **kw: Any) -> list[tuple[str, str]]:
 
 async def run_jailbreak_prepend_async(
     *, targets: Any, prompts: Any, guardrail: Any, judge: Any, input_guardrail: Any = None,
-    demonstrations: Sequence[tuple[str, str]], system_prompt: str | None = None,
+    demonstrations: Optional[Sequence[tuple[str, str]]] = None,
+    system_prompt: str | None = None,
     families: Sequence[str] = FAMILIES, n_variants: int = 1, carriers: Any = None,
     encode_assistant: bool = False, assistant_carrier: str = "", whole_prompt: bool = True,
     prepend_label: str = "jailbreak_prepend",
 ) -> tuple[list, list]:
-    """Run the explicit few-shot jailbreak-prepend condition on caller-injected demonstrations.
+    """Run a caller-injected few-shot prepend extension.
 
-    ``demonstrations`` is a caller-supplied list of ``(request, response)`` pairs; nothing unsafe is
-    shipped in the package, so the demonstrations (and any ``system_prompt`` role instruction) are
-    injected by the experiment. Each demonstration request is encoded with the selected family via
-    the retained :func:`make_jailbreak_priming_async` primitive, and the resulting prepend is
-    delivered through the unchanged single-turn ``run_async`` path.
-
-    This condition differs from Experiment 1 in two declared ways: it prepends independent,
-    direct-completion demonstrations and, by default, encodes the whole live inline prompt so its
-    representation matches the demonstrations. It remains separate from bare Unicode and benign
-    multi-turn conditions. ``carriers`` must supply distinct strings for repeated whole-hider runs
-    (no carrier is used unless injected).
+    The package neither generates nor ships demonstration completions. Callers must provide
+    explicit ``(request, response)`` pairs. This extension was not used by either experiment in
+    the report and must be analysed as a separate condition.
     """
     if not demonstrations:
         raise ValueError(
             "run_jailbreak_prepend requires at least one injected (request, response) "
-            "demonstration pair; nothing unsafe is shipped in the package."
+            "demonstration pair; nothing unsafe is generated or shipped by the package."
         )
     await _R.ensure_pyrit()
+
     rows: list = []
     errors: list = []
     for target in _as_list(targets):
@@ -428,7 +489,8 @@ async def run_jailbreak_prepend_async(
                     )
                     rows.extend(result.outcomes)
                 except Exception as exc:
-                    errors.append((model, family, "jailbreak_prepend", seed, f"{type(exc).__name__}: {exc}"))
+                    errors.append((model, family, "jailbreak_prepend", seed,
+                                   f"{type(exc).__name__}: {exc}"))
     return rows, errors
 
 
